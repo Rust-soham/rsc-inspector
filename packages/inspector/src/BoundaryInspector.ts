@@ -17,6 +17,7 @@ export class BoundaryInspector extends Context.Service<
     >
   }
 >()("@rsc-inspector/BoundaryInspector") {
+  // The no-deps layer models this workflow; `layer` below closes its local graph.
   static readonly layerNoDeps = Layer.effect(
     this,
     Effect.gen(function* () {

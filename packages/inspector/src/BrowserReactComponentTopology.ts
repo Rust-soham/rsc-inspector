@@ -105,6 +105,7 @@ const directChildren = (fiber: UnknownRecord): ReadonlyArray<UnknownRecord> => {
 }
 
 const reactFiberFromElement = (element: Element): UnknownRecord | undefined => {
+  // React attaches the owning Fiber under a randomized private property.
   for (const property of Object.getOwnPropertyNames(element)) {
     if (!property.startsWith("__reactFiber$") && !property.startsWith("__reactInternalInstance$")) {
       continue
@@ -161,6 +162,7 @@ const collectHostElements = (fiber: UnknownRecord): ReadonlyArray<Element> => {
   const elements: Array<Element> = []
   const visit = (current: UnknownRecord): void => {
     if (current.stateNode instanceof Element) {
+      // Stop at each nearest host root so a component does not claim its full subtree.
       elements.push(current.stateNode)
       return
     }
@@ -171,6 +173,7 @@ const collectHostElements = (fiber: UnknownRecord): ReadonlyArray<Element> => {
 }
 
 const serverEntries = (fiber: UnknownRecord): ReadonlyArray<UnknownRecord> => {
+  // React 19 records the Server Component chain that produced a client Fiber here.
   const debugInfo = fiber._debugInfo
   if (!Array.isArray(debugInfo)) return []
   return debugInfo.filter(
@@ -274,6 +277,7 @@ const buildTopology = (
   }
 
   if (!foundHookRoot) {
+    // Early injection can precede renderer registration; mounted DOM Fibers are a safe fallback.
     for (const root of mountedRootsFromDom()) {
       for (const child of directChildren(root)) visitFiber(state, child, null)
     }
@@ -323,6 +327,7 @@ export const ReactComponentTopologyLayer = Layer.effect(
     hook.onCommitFiberRoot = onCommit
 
     const domObserver = new MutationObserver((mutations) => {
+      // Suspense and streamed RSC reveals can mutate DOM without a fresh hook commit.
       if (!mutations.some(isApplicationMutation)) return
       PubSub.publishUnsafe(updates, rebuild())
     })

@@ -7,11 +7,23 @@ test("renders server/client boundary overlays from the live React tree", async (
   page.on("pageerror", (error) => errors.push(error.message))
 
   await page.goto("/")
-  await page.waitForFunction(() => window.__RSC_INSPECTOR_RUNTIME__ !== undefined)
-  await page.keyboard.press("Alt+Shift+R")
+  await page.waitForFunction(
+    () => document.querySelector("[data-rsc-inspector-root]") !== null,
+  )
+
+  const toggle = page.locator("[data-rsc-inspector-root] #rsc-inspector-toggle")
+  await expect(toggle).toHaveAttribute(
+    "title",
+    "Toggle server/client boundaries (Alt + Shift + X)",
+  )
+  await page.keyboard.press("Alt+Shift+X")
+  await expect(toggle).toHaveAttribute("aria-pressed", "true")
 
   const labels = page.locator(
     "[data-rsc-inspector-root] .rsc-inspector-label",
+  )
+  const regions = page.locator(
+    "[data-rsc-inspector-root] .rsc-inspector-region",
   )
   const diagnostics = await page.evaluate(() => {
     const host = document.querySelector<HTMLElement>("[data-rsc-inspector-root]")
@@ -20,12 +32,57 @@ test("renders server/client boundary overlays from the live React tree", async (
       shadowText: host?.shadowRoot?.textContent ?? null,
     }
   })
-  await expect(labels.first(), {
+  await expect(labels, {
     message: JSON.stringify({ diagnostics, errors }, null, 2),
-  }).toBeVisible()
+  }).not.toHaveCount(0)
+  await expect(regions).not.toHaveCount(0)
 
-  const text = await labels.allTextContents()
-  expect(text.some((label) => label.includes("client-boundary"))).toBe(true)
-  expect(text.some((label) => label.includes("server"))).toBe(true)
+  await expect(labels.filter({ hasText: "client component" })).not.toHaveCount(0)
+  await expect(labels.filter({ hasText: "server component" })).not.toHaveCount(0)
+  const kinds = await regions.evaluateAll((elements) =>
+    elements.map((element) =>
+      element instanceof HTMLElement
+        ? element.dataset.rscBoundaryKind
+        : undefined,
+    ),
+  )
+  expect(kinds).toContain("client-boundary")
+  expect(kinds).toContain("server-slot")
+  expect(kinds).toContain("server-subtree")
+  expect(kinds).not.toContain("client-subtree")
+  const labelKinds = await labels.evaluateAll((elements) =>
+    elements.map((element) =>
+      element instanceof HTMLElement
+        ? element.dataset.rscBoundaryKind
+        : undefined,
+    ),
+  )
+  expect(labelKinds.every((kind) => kind === "client-boundary" || kind === "server-slot")).toBe(true)
+  const geometryKeys = await regions.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rectangle = element.getBoundingClientRect()
+      return `${rectangle.x}:${rectangle.y}:${rectangle.width}:${rectangle.height}`
+    }),
+  )
+  expect(new Set(geometryKeys).size).toBe(geometryKeys.length)
+  const componentNames = await regions.evaluateAll((elements) =>
+    elements.map((element) =>
+      element instanceof HTMLElement
+        ? element.dataset.rscComponentName
+        : undefined,
+    ),
+  )
+  expect(componentNames).not.toContain("RootLayout")
+  expect(componentNames).toContain("Page")
+  expect(componentNames).not.toContain("OuterLayoutRouter")
+  const compactServerSubtrees = await regions.evaluateAll((elements) =>
+    elements.filter(
+      (element) =>
+        element instanceof HTMLElement &&
+        element.dataset.compact === "true" &&
+        element.dataset.rscBoundaryKind === "server-subtree",
+    ).length,
+  )
+  expect(compactServerSubtrees).toBe(0)
   expect(errors).toEqual([])
 })

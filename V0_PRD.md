@@ -674,6 +674,9 @@ Validate against the reference fixture and at least two non-demo Next.js applica
 
 v0 is done when a developer can install the inspector, open a real Next.js App Router page, toggle Boundary mode, and accurately see server regions, client boundaries, client descendants, and server slots through arbitrary supported nesting—without manual component annotations or application DOM wrappers.
 
+The default development shortcut for toggling Boundary mode is
+`Alt + Shift + X`.
+
 ## 20. Current compatibility evidence
 
 The package is exercised as a packed tarball, rather than through a workspace
@@ -681,12 +684,31 @@ symlink, so these checks cover the consumer-facing package boundary.
 
 | Application | Next.js | Result | Observed boundary kinds |
 | --- | --- | --- | --- |
-| Local composition fixture | 16.3.0 | Production build and Playwright boundary test pass | Client boundary and server relationships required by the fixture |
-| `aurorascharff/next16-social-media` | 16.3.0 | Page loads, inspector installs, overlay renders | `server-subtree`, `client-boundary`, `client-subtree`, `server-slot` |
-| `vercel-labs/next-beats` | 16.3.0 | Page loads, inspector installs, overlay renders | `server-subtree`, `client-boundary`, `client-subtree`, `server-slot` |
+| Local composition fixture | 16.3.0 | Turbopack Playwright test, webpack development smoke test, and production build pass | Client boundary and server relationships required by the fixture |
+| `aurorascharff/next16-social-media` | 16.3.0 | Root and client-side search navigation render; desktop/mobile resize and teardown pass | `server-subtree`, `client-boundary`, `server-slot` |
+| `vercel-labs/next-beats` | 16.3.0 | Login, authenticated home, client-side search navigation, desktop/mobile resize, and teardown pass against its documented SQLite development mode | `server-subtree`, `client-boundary`, `server-slot` |
 | `aurorascharff/next16-commerce` | 16.3.0-preview.10 | Package integrates, but the page fails before client bootstrap without its Postgres database | Not observable until the application server render succeeds |
 
 The real-application pass also established an important geometry rule: a
 logical component resolves to its nearest host roots, not every descendant DOM
 element. This preserves multi-root components while avoiding an overlay label
 for every element in a component's entire rendered subtree.
+
+The stress harness additionally checks that enabling Boundary mode does not
+change application geometry, no rendered region has zero area or a duplicate
+environment/rectangle key, framework internals do not leak into the overlay,
+and disabling the inspector removes every region. After shared geometry was
+collapsed, NextBeats exercised 2 regions on login, 45 after the authenticated
+Server Component render, 32 after client navigation to search, and 21 after a
+mobile resize, with no page errors. The
+social application exercised 22 regions at the root, 27 after search navigation,
+and 17 after mobile resize. Its application server reports missing-database and
+Next development performance-measure errors independently of the inspector, so
+that target validates the rendered application shell rather than its complete
+data flows.
+
+The real-app pass also exposed an overlay-noise failure: small server-descendant
+leaves produced dozens of low-value dots on icon-heavy pages. Boundary mode now
+suppresses compact `server-subtree` leaves while retaining compact
+`client-boundary` and `server-slot` markers, because those two represent actual
+environment transitions.

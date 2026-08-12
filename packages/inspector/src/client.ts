@@ -1,4 +1,4 @@
-import { makeBrowserInspectorRuntime } from "next-rsc-inspector"
+import { makeBrowserInspectorRuntime } from "./BrowserRuntime.js"
 
 declare global {
   interface Window {
@@ -6,16 +6,15 @@ declare global {
   }
 }
 
-if (process.env.NODE_ENV === "development") {
-  const previous = window.__RSC_INSPECTOR_RUNTIME__
-  if (previous !== undefined) {
-    void previous.dispose()
-  }
-
+const install = async (): Promise<void> => {
+  await window.__RSC_INSPECTOR_RUNTIME__?.dispose()
   const runtime = makeBrowserInspectorRuntime()
   window.__RSC_INSPECTOR_RUNTIME__ = runtime
+  await runtime.install()
+}
 
-  void runtime.install().catch((cause: unknown) => {
+if (process.env.NODE_ENV === "development") {
+  void install().catch((cause: unknown) => {
     console.error("Failed to install the RSC boundary inspector", cause)
   })
 }

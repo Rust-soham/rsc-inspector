@@ -1,13 +1,19 @@
-export * from "./BoundaryInspector.js"
-export * from "./BrowserInspectorInput.js"
-export * from "./BrowserOverlaySurface.js"
-export * from "./BrowserReactComponentTopology.js"
-export * from "./BrowserRuntime.js"
-export * from "./ComponentInspection.js"
-export * from "./ComponentRegions.js"
-export * from "./errors.js"
-export * from "./InspectorInput.js"
-export * from "./InspectorPresentation.js"
-export * from "./model.js"
-export * from "./OverlaySurface.js"
-export * from "./ReactComponentTopology.js"
+export {
+  makeBrowserInspectorRuntime,
+  type BrowserInspectorRuntime,
+} from "./BrowserRuntime.js"
+export {
+  InspectorInstallError,
+  OverlayMountError,
+  OverlayRenderError,
+  RegionResolutionError,
+  TopologyUnavailable,
+} from "./errors.js"
+export type {
+  BoundaryKind,
+  ComponentEnvironment,
+  InspectorNode,
+  Rectangle,
+  RenderedComponentNode,
+  RenderedComponentTree,
+} from "./model.js"

@@ -22,7 +22,7 @@ for (const [name, url] of targets) {
         timeout: 30_000,
       })
       .catch(() => undefined)
-    await page.keyboard.press("Alt+Shift+R")
+    await page.keyboard.press("Alt+Shift+X")
     await page.waitForTimeout(1_000)
   } catch (error) {
     navigationError = String(error)
@@ -32,16 +32,22 @@ for (const [name, url] of targets) {
     const host = document.querySelector("[data-rsc-inspector-root]")
     const labels = Array.from(
       host?.shadowRoot?.querySelectorAll(".rsc-inspector-label") ?? [],
-      (element) => element.textContent ?? "",
+      (element) => ({
+        text: element.textContent ?? "",
+        kind:
+          element instanceof HTMLElement
+            ? element.dataset.rscBoundaryKind
+            : undefined,
+      }),
     )
     return {
       title: document.title,
       inspectorInstalled: host !== null,
       labelCount: labels.length,
       boundaryKinds: Array.from(
-        new Set(labels.map((label) => label.split(" · ").at(-1))),
+        new Set(labels.map((label) => label.kind)),
       ).sort(),
-      sampleLabels: labels.slice(0, 8),
+      sampleLabels: labels.slice(0, 8).map((label) => label.text),
     }
   })
 

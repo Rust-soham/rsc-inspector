@@ -15,6 +15,13 @@ const componentIdFromEvent = (event: MouseEvent): string | undefined => {
   return undefined
 }
 
+const isToggleEvent = (event: MouseEvent): boolean =>
+  event.composedPath().some(
+    (target) =>
+      target instanceof HTMLElement &&
+      target.dataset.rscInspectorToggle === "true",
+  )
+
 export const InspectorInputLayer = Layer.effect(
   InspectorInput,
   Effect.gen(function* () {
@@ -22,7 +29,7 @@ export const InspectorInputLayer = Layer.effect(
     let visible = false
 
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.altKey && event.shiftKey && event.code === "KeyR") {
+      if (event.altKey && event.shiftKey && event.code === "KeyX") {
         visible = !visible
         PubSub.publishUnsafe(commands, { _tag: "SetVisible", visible })
       } else if (event.code === "Escape" && visible) {
@@ -33,6 +40,11 @@ export const InspectorInputLayer = Layer.effect(
     }
 
     const onClick = (event: MouseEvent): void => {
+      if (isToggleEvent(event)) {
+        visible = !visible
+        PubSub.publishUnsafe(commands, { _tag: "SetVisible", visible })
+        return
+      }
       const componentId = componentIdFromEvent(event)
       if (componentId === undefined) return
       PubSub.publishUnsafe(commands, { _tag: "Select", componentId })
