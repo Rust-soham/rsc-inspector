@@ -12,7 +12,6 @@ export const boundaryColors: BoundaryColors = {
 }
 
 const visibleBoundaryKinds: ReadonlySet<BoundaryKind> = new Set([
-  "server-subtree",
   "client-boundary",
   "server-slot",
 ])

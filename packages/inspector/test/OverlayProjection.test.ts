@@ -38,18 +38,18 @@ describe("overlay projection", () => {
   it("collapses shared geometry and prefers the first transition", () => {
     const regions = projectOverlayRegions(scene)
 
-    assert.strictEqual(regions.length, 2)
-    assert.strictEqual(regions[1]?.node.id, "client-shell")
-    assert.strictEqual(regions[1]?.nextComponentId, "server-slot")
-    assert.strictEqual(regions[1]?.stackSize, 2)
+    assert.strictEqual(regions.length, 1)
+    assert.strictEqual(regions[0]?.node.id, "client-shell")
+    assert.strictEqual(regions[0]?.nextComponentId, "server-slot")
+    assert.strictEqual(regions[0]?.stackSize, 2)
   })
 
   it("cycles to the selected component on the same rectangle", () => {
     const regions = projectOverlayRegions({ ...scene, selectedId: "server-slot" })
 
-    assert.strictEqual(regions[1]?.node.id, "server-slot")
-    assert.strictEqual(regions[1]?.nextComponentId, "client-shell")
-    assert.isTrue(regions[1]?.selected)
+    assert.strictEqual(regions[0]?.node.id, "server-slot")
+    assert.strictEqual(regions[0]?.nextComponentId, "client-shell")
+    assert.isTrue(regions[0]?.selected)
   })
 
   it("hides framework roots and compact server leaves", () => {

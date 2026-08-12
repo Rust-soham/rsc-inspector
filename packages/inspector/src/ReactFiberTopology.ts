@@ -1,4 +1,5 @@
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 import {
   ComponentSourceLocation,
@@ -7,23 +8,40 @@ import {
 } from "./model.js"
 import type { ReactDevToolsHook } from "./ReactDevToolsHook.js"
 
-export const ReactFiber = Schema.Struct({
-  child: Schema.Unknown,
-  sibling: Schema.Unknown,
-  return: Schema.Unknown,
-  stateNode: Schema.Unknown,
-  type: Schema.Unknown,
-  elementType: Schema.Unknown,
-  alternate: Schema.Unknown,
-})
-export interface ReactFiber extends Schema.Schema.Type<typeof ReactFiber> {}
+export interface ReactFiber {
+  readonly child: unknown
+  readonly sibling: unknown
+  readonly return: unknown
+  readonly stateNode: unknown
+  readonly type: unknown
+  readonly elementType: unknown
+  readonly alternate: unknown
+  readonly _debugInfo?: unknown
+  readonly _debugSource?: unknown
+}
+export const ReactFiber = Schema.declare<ReactFiber>(
+  (value): value is ReactFiber =>
+    Predicate.hasProperty(value, "child") &&
+    Predicate.hasProperty(value, "sibling") &&
+    Predicate.hasProperty(value, "return") &&
+    Predicate.hasProperty(value, "stateNode") &&
+    Predicate.hasProperty(value, "type") &&
+    Predicate.hasProperty(value, "elementType") &&
+    Predicate.hasProperty(value, "alternate"),
+  { identifier: "ReactFiber" },
+)
 
 export const parseReactFiber = (value: unknown): Option.Option<ReactFiber> =>
   Schema.decodeUnknownOption(ReactFiber)(value)
 
-export const ComponentIdentity = Schema.Struct({ name: Schema.String })
-export interface ComponentIdentity
-  extends Schema.Schema.Type<typeof ComponentIdentity> {}
+export interface ComponentIdentity {
+  readonly name: string
+}
+export const ComponentIdentity = Schema.declare<ComponentIdentity>(
+  (value): value is ComponentIdentity =>
+    Predicate.hasProperty(value, "name") && Predicate.isString(value.name),
+  { identifier: "ReactComponentIdentity" },
+)
 
 export const SourceLocation = Schema.Struct({
   fileName: Schema.String,
@@ -35,14 +53,15 @@ export interface SourceLocation
 
 export const ServerComponentDebugEntry = Schema.Struct({
   name: Schema.String,
-  debugStack: Schema.optionalKey(SourceLocation),
+  debugStack: Schema.optionalKey(Schema.Unknown),
+  debugLocation: Schema.optionalKey(Schema.Unknown),
 })
 export interface ServerComponentDebugEntry
   extends Schema.Schema.Type<typeof ServerComponentDebugEntry> {}
 
 export const ReactFiberDebugMetadata = Schema.Struct({
-  _debugInfo: Schema.optionalKey(Schema.Array(ServerComponentDebugEntry)),
-  _debugSource: Schema.optionalKey(SourceLocation),
+  _debugInfo: Schema.optionalKey(Schema.Array(Schema.Unknown)),
+  _debugSource: Schema.optionalKey(Schema.NullOr(SourceLocation)),
 })
 export interface ReactFiberDebugMetadata
   extends Schema.Schema.Type<typeof ReactFiberDebugMetadata> {}
@@ -65,17 +84,20 @@ const displayName = (fiber: ReactFiber): string | undefined => {
 }
 
 const sourceLocationFrom = (
-  location: SourceLocation | undefined,
+  location: unknown,
 ): RenderedComponentNode["sourceLocation"] =>
-  location === undefined
-    ? undefined
-    : {
-        file: location.fileName,
-        ...(location.lineNumber === undefined ? {} : { line: location.lineNumber }),
-        ...(location.columnNumber === undefined
+  Option.getOrUndefined(
+    Option.map(
+      Schema.decodeUnknownOption(SourceLocation)(location),
+      (parsed) => ({
+        file: parsed.fileName,
+        ...(parsed.lineNumber === undefined ? {} : { line: parsed.lineNumber }),
+        ...(parsed.columnNumber === undefined
           ? {}
-          : { column: location.columnNumber }),
-      }
+          : { column: parsed.columnNumber }),
+      }),
+    ),
+  )
 
 export const directFiberChildren = (
   fiber: ReactFiber,
@@ -97,7 +119,10 @@ const collectHostElements = (
 ): ReadonlyArray<Element> => {
   const elements: Array<Element> = []
   const visit = (current: ReactFiber): void => {
-    if (current.stateNode instanceof Element) {
+    if (
+      typeof Element !== "undefined" &&
+      current.stateNode instanceof Element
+    ) {
       // Nearest host roots preserve multi-root components without claiming descendants.
       elements.push(current.stateNode)
       return
@@ -120,12 +145,14 @@ const serverEntries = (
 ): ReadonlyArray<ServerComponentEntry> => {
   const metadata = Schema.decodeUnknownOption(ReactFiberDebugMetadata)(fiber)
   if (Option.isNone(metadata)) return []
-  return (metadata.value._debugInfo ?? []).map((identity) => {
-    const sourceLocation = sourceLocationFrom(identity.debugStack)
-    return {
-      identity,
+  return (metadata.value._debugInfo ?? []).flatMap((entry) => {
+    const identity = Schema.decodeUnknownOption(ServerComponentDebugEntry)(entry)
+    if (Option.isNone(identity)) return []
+    const sourceLocation = sourceLocationFrom(identity.value.debugLocation)
+    return [{
+      identity: identity.value,
       ...(sourceLocation === undefined ? {} : { sourceLocation }),
-    }
+    }]
   })
 }
 
@@ -194,7 +221,9 @@ const visitFiber = (
     )
     const metadata = Schema.decodeUnknownOption(ReactFiberDebugMetadata)(fiber)
     const sourceLocation = Option.getOrUndefined(
-      Option.map(metadata, (value) => sourceLocationFrom(value._debugSource)),
+      Option.map(metadata, (value) =>
+        sourceLocationFrom(value._debugSource ?? undefined),
+      ),
     )
     state.nodes.push({
       id,
