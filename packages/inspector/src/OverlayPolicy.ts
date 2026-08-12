@@ -1,6 +1,13 @@
 import type { BoundaryKind, InspectorNode } from "./model.js"
 
-export const boundaryColors: Readonly<Record<BoundaryKind, string>> = {
+interface BoundaryColors {
+  readonly "server-subtree": string
+  readonly "client-boundary": string
+  readonly "client-subtree": string
+  readonly "server-slot": string
+}
+
+export const boundaryColors: BoundaryColors = {
   "server-subtree": "#ef4444",
   "client-boundary": "#3b82f6",
   "client-subtree": "#06b6d4",

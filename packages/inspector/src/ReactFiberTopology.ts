@@ -1,78 +1,122 @@
+import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
+import * as Schema from "effect/Schema"
 import type {
   RenderedComponentNode,
   RenderedComponentTree,
 } from "./model.js"
 import type { ReactDevToolsHook } from "./ReactDevToolsHook.js"
 
-export type FiberRecord = Record<string, unknown>
-
-export const isFiberRecord = (value: unknown): value is FiberRecord =>
-  (typeof value === "object" && value !== null) || typeof value === "function"
-
-const stringProperty = (
-  value: unknown,
-  property: string,
-): string | undefined => {
-  if (!isFiberRecord(value)) return undefined
-  const candidate = value[property]
-  return typeof candidate === "string" ? candidate : undefined
+export interface ReactFiber {
+  readonly child: unknown
+  readonly sibling: unknown
+  readonly return: unknown
+  readonly stateNode: unknown
+  readonly type: unknown
+  readonly elementType: unknown
+  readonly alternate: unknown
 }
 
-const objectProperty = (
-  value: unknown,
-  property: string,
-): FiberRecord | undefined => {
-  if (!isFiberRecord(value)) return undefined
-  const candidate = value[property]
-  return isFiberRecord(candidate) ? candidate : undefined
+const isReactFiber = (value: unknown): value is ReactFiber =>
+  Predicate.hasProperty(value, "child") &&
+  Predicate.hasProperty(value, "sibling") &&
+  Predicate.hasProperty(value, "return") &&
+  Predicate.hasProperty(value, "stateNode") &&
+  Predicate.hasProperty(value, "type") &&
+  Predicate.hasProperty(value, "elementType") &&
+  Predicate.hasProperty(value, "alternate")
+
+export const ReactFiber = Schema.declare<ReactFiber>(isReactFiber, {
+  identifier: "ReactFiber",
+})
+
+export const parseReactFiber = (value: unknown): Option.Option<ReactFiber> =>
+  Schema.decodeUnknownOption(ReactFiber)(value)
+
+export interface ComponentIdentity {
+  readonly name: string
 }
 
-const displayName = (fiber: FiberRecord): string | undefined => {
-  const type = fiber.type
-  return (
-    stringProperty(type, "displayName") ??
-    stringProperty(type, "name") ??
-    (typeof type === "string"
-      ? undefined
-      : stringProperty(fiber.elementType, "name"))
+const isComponentIdentity = (value: unknown): value is ComponentIdentity =>
+  Predicate.hasProperty(value, "name") && Predicate.isString(value.name)
+
+export const ComponentIdentity = Schema.declare<ComponentIdentity>(
+  isComponentIdentity,
+  { identifier: "ReactComponentIdentity" },
+)
+
+export const SourceLocation = Schema.Struct({
+  fileName: Schema.String,
+  lineNumber: Schema.optionalKey(Schema.Number),
+  columnNumber: Schema.optionalKey(Schema.Number),
+})
+export interface SourceLocation
+  extends Schema.Schema.Type<typeof SourceLocation> {}
+
+export const ServerComponentDebugEntry = Schema.Struct({
+  name: Schema.String,
+  debugStack: Schema.optionalKey(SourceLocation),
+})
+export interface ServerComponentDebugEntry
+  extends Schema.Schema.Type<typeof ServerComponentDebugEntry> {}
+
+export const ReactFiberDebugMetadata = Schema.Struct({
+  _debugInfo: Schema.optionalKey(Schema.Array(ServerComponentDebugEntry)),
+  _debugSource: Schema.optionalKey(SourceLocation),
+})
+export interface ReactFiberDebugMetadata
+  extends Schema.Schema.Type<typeof ReactFiberDebugMetadata> {}
+
+const parseComponentIdentity = (value: unknown): Option.Option<ComponentIdentity> =>
+  Schema.decodeUnknownOption(ComponentIdentity)(value)
+
+const displayName = (fiber: ReactFiber): string | undefined => {
+  if (Option.isSome(Schema.decodeUnknownOption(Schema.String)(fiber.type))) {
+    return undefined
+  }
+  return Option.getOrUndefined(
+    Option.map(
+      Option.orElse(parseComponentIdentity(fiber.type), () =>
+        parseComponentIdentity(fiber.elementType),
+      ),
+      (component) => component.name,
+    ),
   )
 }
 
-const locationFrom = (
-  value: FiberRecord,
-  property: "_debugSource" | "debugStack",
-): RenderedComponentNode["sourceLocation"] => {
-  const location = objectProperty(value, property)
-  const file = stringProperty(location, "fileName")
-  if (file === undefined) return undefined
-  const line = location?.lineNumber
-  const column = location?.columnNumber
-  return {
-    file,
-    ...(typeof line === "number" ? { line } : {}),
-    ...(typeof column === "number" ? { column } : {}),
-  }
-}
+const sourceLocationFrom = (
+  location: SourceLocation | undefined,
+): RenderedComponentNode["sourceLocation"] =>
+  location === undefined
+    ? undefined
+    : {
+        file: location.fileName,
+        ...(location.lineNumber === undefined ? {} : { line: location.lineNumber }),
+        ...(location.columnNumber === undefined
+          ? {}
+          : { column: location.columnNumber }),
+      }
 
 export const directFiberChildren = (
-  fiber: FiberRecord,
-): ReadonlyArray<FiberRecord> => {
-  const children: Array<FiberRecord> = []
-  let current: unknown = fiber.child
-  const visited = new Set<object>()
-  while (isFiberRecord(current) && !visited.has(current)) {
-    visited.add(current)
-    children.push(current)
-    current = current.sibling
+  fiber: ReactFiber,
+): ReadonlyArray<ReactFiber> => {
+  const children: Array<ReactFiber> = []
+  let current = parseReactFiber(fiber.child)
+  const visited = new Set<ReactFiber>()
+  while (Option.isSome(current) && !visited.has(current.value)) {
+    const child = current.value
+    visited.add(child)
+    children.push(child)
+    current = parseReactFiber(child.sibling)
   }
   return children
 }
 
 const collectHostElements = (
-  fiber: FiberRecord,
+  fiber: ReactFiber,
 ): ReadonlyArray<Element> => {
   const elements: Array<Element> = []
-  const visit = (current: FiberRecord): void => {
+  const visit = (current: ReactFiber): void => {
     if (current.stateNode instanceof Element) {
       // Nearest host roots preserve multi-root components without claiming descendants.
       elements.push(current.stateNode)
@@ -84,21 +128,27 @@ const collectHostElements = (
   return elements
 }
 
-const serverEntries = (fiber: FiberRecord): ReadonlyArray<FiberRecord> => {
-  // React 19 records the Server Component chain that produced a client Fiber here.
-  const debugInfo = fiber._debugInfo
-  if (!Array.isArray(debugInfo)) return []
-  return debugInfo.filter(
-    (entry): entry is FiberRecord =>
-      isFiberRecord(entry) && typeof entry.name === "string",
-  )
+interface ServerComponentEntry {
+  readonly identity: ServerComponentDebugEntry
+  readonly sourceLocation: RenderedComponentNode["sourceLocation"]
+}
+
+const serverEntries = (
+  fiber: ReactFiber,
+): ReadonlyArray<ServerComponentEntry> => {
+  const metadata = Schema.decodeUnknownOption(ReactFiberDebugMetadata)(fiber)
+  if (Option.isNone(metadata)) return []
+  return (metadata.value._debugInfo ?? []).map((identity) => ({
+    identity,
+    sourceLocation: sourceLocationFrom(identity.debugStack),
+  }))
 }
 
 interface BuildState {
   readonly nodes: Array<RenderedComponentNode>
   readonly hostElements: Map<string, ReadonlyArray<Element>>
   readonly ids: WeakMap<object, string>
-  readonly visitedFibers: Set<object>
+  readonly visitedFibers: Set<ReactFiber>
   nextId: number
 }
 
@@ -112,20 +162,21 @@ const idFor = (state: BuildState, value: object): string => {
 
 const appendServerChain = (
   state: BuildState,
-  entries: ReadonlyArray<FiberRecord>,
+  entries: ReadonlyArray<ServerComponentEntry>,
   parentId: string | null,
   elements: ReadonlyArray<Element>,
 ): string | null => {
   let currentParent = parentId
   for (const entry of entries) {
-    const id = idFor(state, entry)
-    const sourceLocation = locationFrom(entry, "debugStack")
+    const id = idFor(state, entry.identity)
     state.nodes.push({
       id,
       parentId: currentParent,
-      name: stringProperty(entry, "name") ?? "Anonymous Server Component",
+      name: entry.identity.name,
       environment: "server",
-      ...(sourceLocation === undefined ? {} : { sourceLocation }),
+      ...(entry.sourceLocation === undefined
+        ? {}
+        : { sourceLocation: entry.sourceLocation }),
     })
     state.hostElements.set(id, elements)
     currentParent = id
@@ -135,7 +186,7 @@ const appendServerChain = (
 
 const visitFiber = (
   state: BuildState,
-  fiber: FiberRecord,
+  fiber: ReactFiber,
   parentId: string | null,
 ): void => {
   if (state.visitedFibers.has(fiber)) return
@@ -153,9 +204,13 @@ const visitFiber = (
 
   if (name !== undefined) {
     const id = idFor(state, fiber)
-    const alternate = fiber.alternate
-    if (isFiberRecord(alternate)) state.ids.set(alternate, id)
-    const sourceLocation = locationFrom(fiber, "_debugSource")
+    Option.map(parseReactFiber(fiber.alternate), (alternate) =>
+      state.ids.set(alternate, id),
+    )
+    const metadata = Schema.decodeUnknownOption(ReactFiberDebugMetadata)(fiber)
+    const sourceLocation = Option.getOrUndefined(
+      Option.map(metadata, (value) => sourceLocationFrom(value._debugSource)),
+    )
     state.nodes.push({
       id,
       parentId: serverParent,
@@ -179,7 +234,7 @@ export interface BuiltTopology {
 }
 
 export const buildFiberTopology = (
-  roots: ReadonlyArray<FiberRecord>,
+  roots: ReadonlyArray<ReactFiber>,
   revision: number,
   ids: WeakMap<object, string>,
   nextId: number,
@@ -202,17 +257,26 @@ export const buildFiberTopology = (
   }
 }
 
+export const ReactRendererRoot = Schema.Struct({ current: ReactFiber })
+export interface ReactRendererRoot
+  extends Schema.Schema.Type<typeof ReactRendererRoot> {}
+
+export const parseReactRendererRoot = (
+  value: unknown,
+): Option.Option<ReactRendererRoot> =>
+  Schema.decodeUnknownOption(ReactRendererRoot)(value)
+
 export const rendererFiberRoots = (
   hook: ReactDevToolsHook,
-): ReadonlyArray<FiberRecord> => {
-  const roots: Array<FiberRecord> = []
-  const visited = new Set<object>()
+): ReadonlyArray<ReactFiber> => {
+  const roots: Array<ReactFiber> = []
+  const visited = new Set<ReactFiber>()
   for (const rendererId of hook.renderers.keys()) {
-    for (const root of hook.getFiberRoots(rendererId)) {
-      if (!isFiberRecord(root) || !isFiberRecord(root.current)) continue
-      if (visited.has(root.current)) continue
-      visited.add(root.current)
-      roots.push(root.current)
+    for (const value of hook.getFiberRoots(rendererId)) {
+      const root = parseReactRendererRoot(value)
+      if (Option.isNone(root) || visited.has(root.value.current)) continue
+      visited.add(root.value.current)
+      roots.push(root.value.current)
     }
   }
   return roots

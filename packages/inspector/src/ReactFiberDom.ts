@@ -1,9 +1,11 @@
+import * as Option from "effect/Option"
 import {
-  type FiberRecord,
-  isFiberRecord,
+  parseReactFiber,
+  parseReactRendererRoot,
+  type ReactFiber,
 } from "./ReactFiberTopology.js"
 
-const fiberFromElement = (element: Element): FiberRecord | undefined => {
+const fiberFromElement = (element: Element): ReactFiber | undefined => {
   // React attaches the owning Fiber under a randomized private property.
   for (const property of Object.getOwnPropertyNames(element)) {
     if (
@@ -13,26 +15,29 @@ const fiberFromElement = (element: Element): FiberRecord | undefined => {
       continue
     }
     const candidate = Object.getOwnPropertyDescriptor(element, property)?.value
-    if (isFiberRecord(candidate)) return candidate
+    const fiber = parseReactFiber(candidate)
+    if (Option.isSome(fiber)) return fiber.value
   }
   return undefined
 }
 
-const rootFiberOf = (fiber: FiberRecord): FiberRecord => {
+const rootFiberOf = (fiber: ReactFiber): ReactFiber => {
   let current = fiber
   const visited = new Set<object>()
-  while (isFiberRecord(current.return) && !visited.has(current.return)) {
-    visited.add(current)
-    current = current.return
+  while (true) {
+    const parent = parseReactFiber(current.return)
+    if (Option.isNone(parent) || visited.has(parent.value)) break
+    visited.add(parent.value)
+    current = parent.value
   }
-  const rootState = current.stateNode
-  return isFiberRecord(rootState) && isFiberRecord(rootState.current)
-    ? rootState.current
-    : current
+  return Option.match(parseReactRendererRoot(current.stateNode), {
+    onNone: () => current,
+    onSome: (root) => root.current,
+  })
 }
 
-export const mountedFiberRoots = (): ReadonlyArray<FiberRecord> => {
-  const roots = new Set<FiberRecord>()
+export const mountedFiberRoots = (): ReadonlyArray<ReactFiber> => {
+  const roots = new Set<ReactFiber>()
   for (const element of document.querySelectorAll("*")) {
     if (element.closest("[data-rsc-inspector-root]") !== null) continue
     const fiber = fiberFromElement(element)
