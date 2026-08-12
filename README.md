@@ -5,6 +5,8 @@ boundaries between React Server Components and Client Components. It reads the
 live React development tree, so application components need no annotations and
 the inspector adds no wrapper elements to application markup.
 
+![RSC Inspector showing server and client boundaries in NextBeats](docs/next-beats-boundaries.png)
+
 ## Requirements
 
 - Next.js `>=16.3.0 <17`
