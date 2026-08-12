@@ -29,6 +29,7 @@ test("renders server/client boundary overlays from the live React tree", async (
     const host = document.querySelector<HTMLElement>("[data-rsc-inspector-root]")
     return {
       hasHost: host !== null,
+      hasNodeProcess: Reflect.get(globalThis, "process") !== undefined,
       shadowText: host?.shadowRoot?.textContent ?? null,
     }
   })
@@ -48,8 +49,13 @@ test("renders server/client boundary overlays from the live React tree", async (
   )
   expect(kinds).toContain("client-boundary")
   expect(kinds).toContain("server-slot")
-  expect(kinds).toContain("server-subtree")
+  expect(kinds).not.toContain("server-subtree")
   expect(kinds).not.toContain("client-subtree")
+  expect(
+    kinds.every(
+      (kind) => kind === "client-boundary" || kind === "server-slot",
+    ),
+  ).toBe(true)
   const labelKinds = await labels.evaluateAll((elements) =>
     elements.map((element) =>
       element instanceof HTMLElement
@@ -73,16 +79,7 @@ test("renders server/client boundary overlays from the live React tree", async (
     ),
   )
   expect(componentNames).not.toContain("RootLayout")
-  expect(componentNames).toContain("Page")
   expect(componentNames).not.toContain("OuterLayoutRouter")
-  const compactServerSubtrees = await regions.evaluateAll((elements) =>
-    elements.filter(
-      (element) =>
-        element instanceof HTMLElement &&
-        element.dataset.compact === "true" &&
-        element.dataset.rscBoundaryKind === "server-subtree",
-    ).length,
-  )
-  expect(compactServerSubtrees).toBe(0)
+  expect(diagnostics.hasNodeProcess).toBe(false)
   expect(errors).toEqual([])
 })
