@@ -1,22 +1,31 @@
-import type { InspectorNode, InspectorScene, Rectangle } from "./model.js"
+import * as Schema from "effect/Schema"
+import {
+  InspectorNode,
+  type InspectorScene,
+  Rectangle,
+} from "./model.js"
 import {
   isApplicationBoundary,
   isTransitionBoundary,
 } from "./OverlayPolicy.js"
 
-export interface OverlayRegion {
-  readonly node: InspectorNode
-  readonly rectangle: Rectangle
-  readonly compact: boolean
-  readonly selected: boolean
-  readonly nextComponentId: string
-  readonly stackSize: number
-}
+export const OverlayRegion = Schema.Struct({
+  node: InspectorNode,
+  rectangle: Rectangle,
+  compact: Schema.Boolean,
+  selected: Schema.Boolean,
+  nextComponentId: Schema.String,
+  stackSize: Schema.Number,
+})
+export interface OverlayRegion
+  extends Schema.Schema.Type<typeof OverlayRegion> {}
 
-interface RegionCandidate {
-  readonly node: InspectorNode
-  readonly rectangle: Rectangle
-}
+const RegionCandidate = Schema.Struct({
+  node: InspectorNode,
+  rectangle: Rectangle,
+})
+interface RegionCandidate
+  extends Schema.Schema.Type<typeof RegionCandidate> {}
 
 type RegionGroup = [RegionCandidate, ...Array<RegionCandidate>]
 

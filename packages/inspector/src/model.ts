@@ -1,50 +1,72 @@
-export type ComponentEnvironment = "server" | "client"
+import * as Schema from "effect/Schema"
 
-export type BoundaryKind =
-  | "server-subtree"
-  | "client-boundary"
-  | "client-subtree"
-  | "server-slot"
+export const ComponentEnvironment = Schema.Literals(["server", "client"])
+export type ComponentEnvironment = typeof ComponentEnvironment.Type
 
-export interface RenderedComponentNode {
-  readonly id: string
-  readonly parentId: string | null
-  readonly name: string
-  readonly environment: ComponentEnvironment
-  readonly sourceLocation?: {
-    readonly file: string
-    readonly line?: number
-    readonly column?: number
-  }
-}
+export const BoundaryKind = Schema.Literals([
+  "server-subtree",
+  "client-boundary",
+  "client-subtree",
+  "server-slot",
+])
+export type BoundaryKind = typeof BoundaryKind.Type
 
-export interface RenderedComponentTree {
-  readonly revision: number
-  readonly nodes: ReadonlyArray<RenderedComponentNode>
-}
+export const ComponentSourceLocation = Schema.Struct({
+  file: Schema.String,
+  line: Schema.optionalKey(Schema.Number),
+  column: Schema.optionalKey(Schema.Number),
+})
+export interface ComponentSourceLocation
+  extends Schema.Schema.Type<typeof ComponentSourceLocation> {}
 
-export interface Rectangle {
-  readonly x: number
-  readonly y: number
-  readonly width: number
-  readonly height: number
-}
+export const RenderedComponentNode = Schema.Struct({
+  id: Schema.String,
+  parentId: Schema.NullOr(Schema.String),
+  name: Schema.String,
+  environment: ComponentEnvironment,
+  sourceLocation: Schema.optionalKey(ComponentSourceLocation),
+})
+export interface RenderedComponentNode
+  extends Schema.Schema.Type<typeof RenderedComponentNode> {}
 
-export interface InspectorNode extends RenderedComponentNode {
-  readonly boundaryKind: BoundaryKind
-  readonly rectangles: ReadonlyArray<Rectangle>
-}
+export const RenderedComponentTree = Schema.Struct({
+  revision: Schema.Number,
+  nodes: Schema.Array(RenderedComponentNode),
+})
+export interface RenderedComponentTree
+  extends Schema.Schema.Type<typeof RenderedComponentTree> {}
 
-export interface InspectorScene {
-  readonly revision: number
-  readonly visible: boolean
-  readonly selectedId: string | null
-  readonly nodes: ReadonlyArray<InspectorNode>
-}
+export const Rectangle = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  width: Schema.Number,
+  height: Schema.Number,
+})
+export interface Rectangle extends Schema.Schema.Type<typeof Rectangle> {}
 
-export type InspectionCommand =
-  | { readonly _tag: "SetVisible"; readonly visible: boolean }
-  | { readonly _tag: "Select"; readonly componentId: string | null }
+export const InspectorNode = RenderedComponentNode.pipe(
+  Schema.fieldsAssign({
+    boundaryKind: BoundaryKind,
+    rectangles: Schema.Array(Rectangle),
+  }),
+)
+export interface InspectorNode
+  extends Schema.Schema.Type<typeof InspectorNode> {}
+
+export const InspectorScene = Schema.Struct({
+  revision: Schema.Number,
+  visible: Schema.Boolean,
+  selectedId: Schema.NullOr(Schema.String),
+  nodes: Schema.Array(InspectorNode),
+})
+export interface InspectorScene
+  extends Schema.Schema.Type<typeof InspectorScene> {}
+
+export const InspectionCommand = Schema.TaggedUnion({
+  SetVisible: { visible: Schema.Boolean },
+  Select: { componentId: Schema.NullOr(Schema.String) },
+})
+export type InspectionCommand = typeof InspectionCommand.Type
 
 export const emptyScene: InspectorScene = {
   revision: 0,

@@ -1,11 +1,8 @@
-import type { BoundaryKind, InspectorNode } from "./model.js"
+import * as Schema from "effect/Schema"
+import { BoundaryKind, type InspectorNode } from "./model.js"
 
-interface BoundaryColors {
-  readonly "server-subtree": string
-  readonly "client-boundary": string
-  readonly "client-subtree": string
-  readonly "server-slot": string
-}
+const BoundaryColors = Schema.Record(BoundaryKind, Schema.String)
+interface BoundaryColors extends Schema.Schema.Type<typeof BoundaryColors> {}
 
 export const boundaryColors: BoundaryColors = {
   "server-subtree": "#ef4444",

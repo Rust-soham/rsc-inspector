@@ -1,49 +1,29 @@
 import * as Option from "effect/Option"
-import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
-import type {
-  RenderedComponentNode,
+import {
+  ComponentSourceLocation,
+  type RenderedComponentNode,
   RenderedComponentTree,
 } from "./model.js"
 import type { ReactDevToolsHook } from "./ReactDevToolsHook.js"
 
-export interface ReactFiber {
-  readonly child: unknown
-  readonly sibling: unknown
-  readonly return: unknown
-  readonly stateNode: unknown
-  readonly type: unknown
-  readonly elementType: unknown
-  readonly alternate: unknown
-}
-
-const isReactFiber = (value: unknown): value is ReactFiber =>
-  Predicate.hasProperty(value, "child") &&
-  Predicate.hasProperty(value, "sibling") &&
-  Predicate.hasProperty(value, "return") &&
-  Predicate.hasProperty(value, "stateNode") &&
-  Predicate.hasProperty(value, "type") &&
-  Predicate.hasProperty(value, "elementType") &&
-  Predicate.hasProperty(value, "alternate")
-
-export const ReactFiber = Schema.declare<ReactFiber>(isReactFiber, {
-  identifier: "ReactFiber",
+export const ReactFiber = Schema.Struct({
+  child: Schema.Unknown,
+  sibling: Schema.Unknown,
+  return: Schema.Unknown,
+  stateNode: Schema.Unknown,
+  type: Schema.Unknown,
+  elementType: Schema.Unknown,
+  alternate: Schema.Unknown,
 })
+export interface ReactFiber extends Schema.Schema.Type<typeof ReactFiber> {}
 
 export const parseReactFiber = (value: unknown): Option.Option<ReactFiber> =>
   Schema.decodeUnknownOption(ReactFiber)(value)
 
-export interface ComponentIdentity {
-  readonly name: string
-}
-
-const isComponentIdentity = (value: unknown): value is ComponentIdentity =>
-  Predicate.hasProperty(value, "name") && Predicate.isString(value.name)
-
-export const ComponentIdentity = Schema.declare<ComponentIdentity>(
-  isComponentIdentity,
-  { identifier: "ReactComponentIdentity" },
-)
+export const ComponentIdentity = Schema.Struct({ name: Schema.String })
+export interface ComponentIdentity
+  extends Schema.Schema.Type<typeof ComponentIdentity> {}
 
 export const SourceLocation = Schema.Struct({
   fileName: Schema.String,
@@ -128,20 +108,25 @@ const collectHostElements = (
   return elements
 }
 
-interface ServerComponentEntry {
-  readonly identity: ServerComponentDebugEntry
-  readonly sourceLocation: RenderedComponentNode["sourceLocation"]
-}
+const ServerComponentEntry = Schema.Struct({
+  identity: ServerComponentDebugEntry,
+  sourceLocation: Schema.optionalKey(ComponentSourceLocation),
+})
+interface ServerComponentEntry
+  extends Schema.Schema.Type<typeof ServerComponentEntry> {}
 
 const serverEntries = (
   fiber: ReactFiber,
 ): ReadonlyArray<ServerComponentEntry> => {
   const metadata = Schema.decodeUnknownOption(ReactFiberDebugMetadata)(fiber)
   if (Option.isNone(metadata)) return []
-  return (metadata.value._debugInfo ?? []).map((identity) => ({
-    identity,
-    sourceLocation: sourceLocationFrom(identity.debugStack),
-  }))
+  return (metadata.value._debugInfo ?? []).map((identity) => {
+    const sourceLocation = sourceLocationFrom(identity.debugStack)
+    return {
+      identity,
+      ...(sourceLocation === undefined ? {} : { sourceLocation }),
+    }
+  })
 }
 
 interface BuildState {
@@ -227,11 +212,19 @@ const visitFiber = (
   }
 }
 
-export interface BuiltTopology {
-  readonly tree: RenderedComponentTree
-  readonly hostElements: ReadonlyMap<string, ReadonlyArray<Element>>
-  readonly nextId: number
-}
+const HostElement = Schema.declare<Element>(
+  (value): value is Element =>
+    typeof Element !== "undefined" && value instanceof Element,
+  { identifier: "HostElement" },
+)
+
+export const BuiltTopology = Schema.Struct({
+  tree: RenderedComponentTree,
+  hostElements: Schema.ReadonlyMap(Schema.String, Schema.Array(HostElement)),
+  nextId: Schema.Number,
+})
+export interface BuiltTopology
+  extends Schema.Schema.Type<typeof BuiltTopology> {}
 
 export const buildFiberTopology = (
   roots: ReadonlyArray<ReactFiber>,

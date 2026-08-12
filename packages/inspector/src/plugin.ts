@@ -1,6 +1,10 @@
-export interface InspectorNextConfig {
-  readonly instrumentationClientInject?: Array<string>
-}
+import * as Schema from "effect/Schema"
+
+export const InspectorNextConfig = Schema.Struct({
+  instrumentationClientInject: Schema.optionalKey(Schema.Array(Schema.String)),
+})
+export interface InspectorNextConfig
+  extends Schema.Schema.Type<typeof InspectorNextConfig> {}
 
 const clientEntry = "next-rsc-inspector/client"
 

@@ -1,5 +1,9 @@
 import { assert, describe, it } from "@effect/vitest"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import {
+  InspectionCommand,
+  InspectorScene,
   applyInspectionCommand,
   deriveBoundaryKind,
   emptyScene,
@@ -8,6 +12,27 @@ import {
 } from "../src/model.js"
 
 describe("boundary projection", () => {
+  it("parses scenes and commands from the shared contracts", () => {
+    assert.isTrue(
+      Option.isSome(
+        Schema.decodeUnknownOption(InspectorScene)({
+          revision: 0,
+          visible: false,
+          selectedId: null,
+          nodes: [],
+        }),
+      ),
+    )
+    assert.isTrue(
+      Option.isSome(
+        Schema.decodeUnknownOption(InspectionCommand)({
+          _tag: "SetVisible",
+          visible: true,
+        }),
+      ),
+    )
+  })
+
   it("classifies all server/client transitions", () => {
     assert.strictEqual(deriveBoundaryKind(undefined, "server"), "server-subtree")
     assert.strictEqual(deriveBoundaryKind("server", "server"), "server-subtree")

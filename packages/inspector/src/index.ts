@@ -9,10 +9,13 @@ export {
   RegionResolutionError,
   TopologyUnavailable,
 } from "./errors.js"
-export type {
+export {
   BoundaryKind,
   ComponentEnvironment,
+  ComponentSourceLocation,
+  InspectionCommand,
   InspectorNode,
+  InspectorScene,
   Rectangle,
   RenderedComponentNode,
   RenderedComponentTree,
