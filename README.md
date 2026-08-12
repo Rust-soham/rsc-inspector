@@ -86,6 +86,10 @@ React or Next versions may require a compatibility update.
 Development must run inside WSL Ubuntu. The repository expects the native WSL
 Node.js and pnpm toolchain, not Windows executables mounted under `/mnt/c`.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the factual module map and routing
+guide for topology, geometry, overlay policy, DOM rendering, and Effect
+lifecycle changes.
+
 ```bash
 git clone git@github.com:Rust-soham/rsc-inspector.git
 cd rsc-inspector
