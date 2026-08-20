@@ -5,47 +5,52 @@ export const overlayStyles = `
     inset: 0;
     z-index: 2147483646;
     pointer-events: none;
-    font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   .rsc-inspector-region {
     position: fixed;
     box-sizing: border-box;
-    border: 2px dotted var(--rsc-color);
-    border-radius: 5px;
+    border: 0;
+    border-radius: 6px;
     background: transparent;
+    box-shadow: inset 0 0 0 2px var(--rsc-color);
   }
   .rsc-inspector-region[data-selected="true"] {
-    outline: 1px solid color-mix(in srgb, var(--rsc-color) 45%, transparent);
-    outline-offset: 2px;
+    box-shadow:
+      inset 0 0 0 2px var(--rsc-color),
+      0 0 0 3px color-mix(in srgb, var(--rsc-color) 24%, transparent);
   }
-  .rsc-inspector-region[data-compact="true"] {
-    width: 12px !important;
-    height: 12px !important;
-    border-radius: 999px;
-    pointer-events: auto;
+  .rsc-inspector-region[data-presentation="compact"] {
+    border: 2px dotted var(--rsc-color);
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
   }
   .rsc-inspector-label {
     position: absolute;
     left: 8px;
-    top: -8px;
+    top: 0;
+    transform: translateY(-100%);
     z-index: 1;
-    max-width: calc(100% - 12px);
+    max-width: calc(100% - 16px);
     overflow: hidden;
-    padding: 2px 8px;
-    border: 1px solid var(--rsc-color);
-    border-radius: 4px;
-    color: var(--rsc-color);
-    background: rgba(255, 255, 255, 0.78);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    font: 400 12px/16px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    text-transform: lowercase;
+    padding: 1px 6px;
+    border: 0;
+    border-radius: 4px 4px 0 0;
+    color: #fff;
+    background: color-mix(in srgb, var(--rsc-color) 72%, transparent);
+    box-shadow: none;
+    font: 600 10px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     white-space: nowrap;
     text-overflow: ellipsis;
     pointer-events: auto;
     cursor: pointer;
+    backdrop-filter: blur(4px);
   }
-  @media (prefers-color-scheme: dark) {
-    .rsc-inspector-label { background: rgba(0, 0, 0, 0.72); }
+  .rsc-inspector-label:hover { filter: brightness(1.08); }
+  .rsc-inspector-label:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 1px;
   }
   #rsc-inspector-toggle {
     position: fixed;

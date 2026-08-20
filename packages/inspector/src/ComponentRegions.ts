@@ -3,18 +3,19 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as PubSub from "effect/PubSub"
 import * as Stream from "effect/Stream"
-import { ReactComponentTopologyLayer } from "./BrowserReactComponentTopology.js"
 import { RegionResolutionError } from "./errors.js"
-import type { Rectangle, RenderedComponentTree } from "./model.js"
-import { ReactComponentTopology } from "./ReactComponentTopology.js"
+import type { Rectangle } from "./model.js"
+import type { TopologySnapshot } from "./ReactComponentTopology.js"
 
 const rectangleOf = (element: Element): Rectangle => {
   const rect = element.getBoundingClientRect()
+  const style = window.getComputedStyle(element)
   return {
     x: rect.x,
     y: rect.y,
     width: rect.width,
     height: rect.height,
+    borderRadius: style.borderRadius,
   }
 }
 
@@ -23,7 +24,7 @@ export class ComponentRegions extends Context.Service<
   {
     readonly invalidations: Stream.Stream<void>
     readonly resolve: (
-      tree: RenderedComponentTree,
+      snapshot: TopologySnapshot,
     ) => Effect.Effect<
       ReadonlyMap<string, ReadonlyArray<Rectangle>>,
       RegionResolutionError
@@ -33,7 +34,6 @@ export class ComponentRegions extends Context.Service<
   static readonly layerNoDeps = Layer.effect(
     this,
     Effect.gen(function* () {
-      const topology = yield* ReactComponentTopology
       const invalidations = yield* PubSub.unbounded<void>()
 
       const invalidate = (): void => {
@@ -52,22 +52,22 @@ export class ComponentRegions extends Context.Service<
       )
 
       const resolve = Effect.fn("ComponentRegions.resolve")(function* (
-        tree: RenderedComponentTree,
+        snapshot: TopologySnapshot,
       ) {
-        const entries = yield* Effect.forEach(tree.nodes, (node) =>
-          topology.hostElements(node.id).pipe(
-            Effect.map(
-              (elements) => [node.id, elements.map(rectangleOf)] as const,
-            ),
-            Effect.mapError(
-              (cause) =>
-                new RegionResolutionError({
-                  componentId: node.id,
-                  reason: "Unable to resolve component host elements",
-                  cause,
-                }),
-            ),
-          ),
+        const entries = yield* Effect.forEach(snapshot.tree.nodes, (node) =>
+          Effect.try({
+            try: () =>
+              [
+                node.id,
+                (snapshot.hostElements.get(node.id) ?? []).map(rectangleOf),
+              ] as const,
+            catch: (cause) =>
+              new RegionResolutionError({
+                componentId: node.id,
+                reason: "Unable to resolve component host elements",
+                cause,
+              }),
+          }),
         )
         return new Map(entries)
       })
@@ -79,7 +79,5 @@ export class ComponentRegions extends Context.Service<
     }),
   )
 
-  static readonly layer = this.layerNoDeps.pipe(
-    Layer.provide(ReactComponentTopologyLayer),
-  )
+  static readonly layer = this.layerNoDeps
 }

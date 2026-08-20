@@ -37,9 +37,8 @@ const tree: RenderedComponentTree = {
 const TopologyTestLayer = Layer.succeed(
   ReactComponentTopology,
   ReactComponentTopology.of({
-    snapshot: Effect.succeed(tree),
+    snapshot: Effect.succeed({ tree, hostElements: new Map() }),
     changes: Stream.empty,
-    hostElements: () => Effect.succeed([]),
   }),
 )
 

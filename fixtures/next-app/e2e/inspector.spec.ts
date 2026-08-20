@@ -19,9 +19,6 @@ test("renders server/client boundary overlays from the live React tree", async (
   await page.keyboard.press("Alt+Shift+X")
   await expect(toggle).toHaveAttribute("aria-pressed", "true")
 
-  const labels = page.locator(
-    "[data-rsc-inspector-root] .rsc-inspector-label",
-  )
   const regions = page.locator(
     "[data-rsc-inspector-root] .rsc-inspector-region",
   )
@@ -33,13 +30,19 @@ test("renders server/client boundary overlays from the live React tree", async (
       shadowText: host?.shadowRoot?.textContent ?? null,
     }
   })
-  await expect(labels, {
+  await expect(regions, {
     message: JSON.stringify({ diagnostics, errors }, null, 2),
   }).not.toHaveCount(0)
-  await expect(regions).not.toHaveCount(0)
-
-  await expect(labels.filter({ hasText: "client component" })).not.toHaveCount(0)
-  await expect(labels.filter({ hasText: "server component" })).not.toHaveCount(0)
+  await expect(
+    page.locator(
+      '[data-rsc-inspector-root] [data-presentation="card"] > .rsc-inspector-label',
+    ),
+  ).not.toHaveCount(0)
+  await expect(
+    page.locator(
+      '[data-rsc-inspector-root] [data-presentation="compact"] .rsc-inspector-label',
+    ),
+  ).toHaveCount(0)
   const kinds = await regions.evaluateAll((elements) =>
     elements.map((element) =>
       element instanceof HTMLElement
@@ -56,14 +59,6 @@ test("renders server/client boundary overlays from the live React tree", async (
       (kind) => kind === "client-boundary" || kind === "server-slot",
     ),
   ).toBe(true)
-  const labelKinds = await labels.evaluateAll((elements) =>
-    elements.map((element) =>
-      element instanceof HTMLElement
-        ? element.dataset.rscBoundaryKind
-        : undefined,
-    ),
-  )
-  expect(labelKinds.every((kind) => kind === "client-boundary" || kind === "server-slot")).toBe(true)
   const geometryKeys = await regions.evaluateAll((elements) =>
     elements.map((element) => {
       const rectangle = element.getBoundingClientRect()

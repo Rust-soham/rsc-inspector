@@ -42,6 +42,98 @@ describe("overlay projection", () => {
     assert.strictEqual(regions[0]?.node.id, "client-shell")
     assert.strictEqual(regions[0]?.nextComponentId, "server-slot")
     assert.strictEqual(regions[0]?.stackSize, 2)
+    assert.strictEqual(regions[0]?.presentation, "card")
+    assert.isTrue(regions[0]?.labelVisible)
+  })
+
+  it("preserves every rectangle of a multi-root component", () => {
+    const rectangles = [
+      { x: 10, y: 20, width: 20, height: 20, borderRadius: "50%" },
+      { x: 40, y: 20, width: 120, height: 24, borderRadius: "6px" },
+      { x: 10, y: 60, width: 200, height: 40 },
+    ]
+    const regions = projectOverlayRegions({
+      ...scene,
+      selectedId: "client-shell",
+      nodes: [
+        scene.nodes[0]!,
+        { ...scene.nodes[1]!, rectangles },
+      ],
+    })
+
+    assert.strictEqual(regions.length, 3)
+    assert.deepEqual(
+      regions.map(({ rectangle }) => rectangle),
+      rectangles,
+    )
+    assert.deepEqual(
+      regions.map(({ presentation }) => presentation),
+      ["compact", "card", "card"],
+    )
+    assert.isTrue(regions.every(({ selected }) => selected))
+  })
+
+  it("keeps a wide, short boundary as a card", () => {
+    const regions = projectOverlayRegions({
+      ...scene,
+      nodes: [
+        scene.nodes[0]!,
+        {
+          ...scene.nodes[1]!,
+          rectangles: [{ x: 10, y: 40, width: 320, height: 36 }],
+        },
+      ],
+    })
+
+    assert.strictEqual(regions[0]?.presentation, "card")
+    assert.isTrue(regions[0]?.labelVisible)
+  })
+
+  it("declutters colliding labels without changing boundary cards", () => {
+    const regions = projectOverlayRegions({
+      ...scene,
+      nodes: [
+        scene.nodes[0]!,
+        { ...scene.nodes[1]!, rectangles: [{ x: 10, y: 40, width: 200, height: 36 }] },
+        { ...scene.nodes[2]!, rectangles: [{ x: 20, y: 42, width: 180, height: 36 }] },
+      ],
+    })
+
+    assert.deepEqual(
+      regions.map(({ presentation }) => presentation),
+      ["card", "card"],
+    )
+    assert.strictEqual(
+      regions.filter(({ labelVisible }) => labelVisible).length,
+      1,
+    )
+  })
+
+  it("uses a shape-preserving compact outline for a small boundary", () => {
+    const regions = projectOverlayRegions({
+      ...scene,
+      nodes: [
+        scene.nodes[0]!,
+        {
+          ...scene.nodes[1]!,
+          rectangles: [
+            { x: 10, y: 10, width: 28, height: 28, borderRadius: "50%" },
+          ],
+        },
+      ],
+    })
+
+    assert.strictEqual(regions[0]?.presentation, "compact")
+    assert.strictEqual(regions[0]?.rectangle.borderRadius, "50%")
+  })
+
+  it("does not invent geometry for an unmapped boundary", () => {
+    const regions = projectOverlayRegions({
+      ...scene,
+      nodes: [scene.nodes[0]!, { ...scene.nodes[1]!, rectangles: [] }],
+    })
+
+    assert.deepEqual(regions, [])
   })
 
   it("cycles to the selected component on the same rectangle", () => {

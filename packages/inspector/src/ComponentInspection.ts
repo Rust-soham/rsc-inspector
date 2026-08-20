@@ -41,38 +41,40 @@ export class ComponentInspection extends Context.Service<
       const scope = yield* Scope.Scope
 
       const open = Effect.fn("ComponentInspection.open")(function* () {
-        const initialTree = yield* topology.snapshot
-        const initialRegions = yield* regions.resolve(initialTree)
-        const initialScene = projectScene(initialTree, initialRegions, {
+        const initialSnapshot = yield* topology.snapshot
+        const initialRegions = yield* regions.resolve(initialSnapshot)
+        const initialScene = projectScene(initialSnapshot.tree, initialRegions, {
           revision: 0,
           visible: false,
           selectedId: null,
           nodes: [],
         })
         const state = yield* SubscriptionRef.make(initialScene)
-        const currentTree = yield* Ref.make(initialTree)
+        const currentSnapshot = yield* Ref.make(initialSnapshot)
 
         const reconcile = Effect.fn("ComponentInspection.reconcile")(function* (
-          tree: typeof initialTree,
+          snapshot: typeof initialSnapshot,
         ) {
-          const resolved = yield* regions.resolve(tree)
+          const resolved = yield* regions.resolve(snapshot)
           yield* SubscriptionRef.update(state, (previous) =>
-            projectScene(tree, resolved, previous),
+            projectScene(snapshot.tree, resolved, previous),
           )
         })
 
         yield* topology.changes.pipe(
-          Stream.runForEach((tree) =>
+          Stream.runForEach((snapshot) =>
             Effect.gen(function* () {
-              yield* Ref.set(currentTree, tree)
-              yield* reconcile(tree)
+              yield* Ref.set(currentSnapshot, snapshot)
+              yield* reconcile(snapshot)
             }),
           ),
           Effect.forkIn(scope),
         )
 
         yield* regions.invalidations.pipe(
-          Stream.runForEach(() => Ref.get(currentTree).pipe(Effect.flatMap(reconcile))),
+          Stream.runForEach(() =>
+            Ref.get(currentSnapshot).pipe(Effect.flatMap(reconcile)),
+          ),
           Effect.forkIn(scope),
         )
 

@@ -41,6 +41,7 @@ export const Rectangle = Schema.Struct({
   y: Schema.Number,
   width: Schema.Number,
   height: Schema.Number,
+  borderRadius: Schema.optionalKey(Schema.String),
 })
 export interface Rectangle extends Schema.Schema.Type<typeof Rectangle> {}
 

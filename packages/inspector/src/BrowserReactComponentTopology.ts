@@ -6,8 +6,10 @@ import * as PubSub from "effect/PubSub"
 import * as Stream from "effect/Stream"
 import { initialize } from "react-devtools-inline/backend"
 import { TopologyUnavailable } from "./errors.js"
-import type { RenderedComponentTree } from "./model.js"
-import { ReactComponentTopology } from "./ReactComponentTopology.js"
+import {
+  ReactComponentTopology,
+  type TopologySnapshot,
+} from "./ReactComponentTopology.js"
 import {
   isApplicationMutation,
   mountedFiberRoots,
@@ -29,16 +31,12 @@ export const ReactComponentTopologyLayer = Layer.effect(
       })
     }
 
-    const updates = yield* PubSub.unbounded<RenderedComponentTree>({ replay: 1 })
+    const updates = yield* PubSub.unbounded<TopologySnapshot>({ replay: 1 })
     const ids = new WeakMap<object, string>()
     let revision = 0
     let nextId = 1
-    let currentHostElements: ReadonlyMap<
-      string,
-      ReadonlyArray<Element>
-    > = new Map()
 
-    const rebuild = (): RenderedComponentTree => {
+    const rebuild = (): TopologySnapshot => {
       const rendererRoots = rendererFiberRoots(hook)
       // Scan DOM only during early injection before a renderer registers roots.
       const roots =
@@ -50,8 +48,7 @@ export const ReactComponentTopologyLayer = Layer.effect(
         nextId,
       )
       nextId = built.nextId
-      currentHostElements = built.hostElements
-      return built.tree
+      return { tree: built.tree, hostElements: built.hostElements }
     }
 
     const originalCommit = hook.onCommitFiberRoot
@@ -91,8 +88,6 @@ export const ReactComponentTopologyLayer = Layer.effect(
     return ReactComponentTopology.of({
       snapshot: Effect.sync(rebuild),
       changes: Stream.fromPubSub(updates),
-      hostElements: (componentId) =>
-        Effect.sync(() => currentHostElements.get(componentId) ?? []),
     })
   }),
 )
