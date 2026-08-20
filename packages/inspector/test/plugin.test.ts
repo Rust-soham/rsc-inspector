@@ -15,4 +15,18 @@ describe("Next.js plugin", () => {
     ])
     assert.isTrue(repeated.reactStrictMode)
   })
+
+  it("composes with asynchronous Next.js config factories", async () => {
+    const withWorkflow = async (phase: string) => ({
+      instrumentationClientInject: ["workflow/client"],
+      phase,
+    })
+    const configured = await withRscInspector(withWorkflow)("development")
+
+    assert.deepEqual(configured.instrumentationClientInject, [
+      "workflow/client",
+      "next-rsc-inspector/client",
+    ])
+    assert.strictEqual(configured.phase, "development")
+  })
 })

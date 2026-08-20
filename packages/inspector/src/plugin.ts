@@ -8,9 +8,13 @@ export interface InspectorNextConfig
 
 const clientEntry = "next-rsc-inspector/client"
 
-export const withRscInspector = <Config extends InspectorNextConfig>(
+type Instrumented<Config extends InspectorNextConfig> = Config & {
+  readonly instrumentationClientInject: Array<string>
+}
+
+const appendClientEntry = <Config extends InspectorNextConfig>(
   nextConfig: Config,
-): Config & { readonly instrumentationClientInject: Array<string> } => {
+): Instrumented<Config> => {
   const existing = nextConfig.instrumentationClientInject ?? []
   return {
     ...nextConfig,
@@ -18,4 +22,28 @@ export const withRscInspector = <Config extends InspectorNextConfig>(
       ? [...existing]
       : [...existing, clientEntry],
   }
+}
+
+export function withRscInspector<Config extends InspectorNextConfig>(
+  nextConfig: Config,
+): Instrumented<Config>
+export function withRscInspector<
+  Arguments extends Array<unknown>,
+  Config extends InspectorNextConfig,
+>(
+  nextConfig: (...arguments_: Arguments) => Config | Promise<Config>,
+): (...arguments_: Arguments) => Promise<Instrumented<Config>>
+export function withRscInspector(
+  nextConfig:
+    | InspectorNextConfig
+    | ((...arguments_: Array<unknown>) =>
+        | InspectorNextConfig
+        | Promise<InspectorNextConfig>),
+):
+  | Instrumented<InspectorNextConfig>
+  | ((...arguments_: Array<unknown>) =>
+      Promise<Instrumented<InspectorNextConfig>>) {
+  if (typeof nextConfig !== "function") return appendClientEntry(nextConfig)
+  return async (...arguments_) =>
+    appendClientEntry(await nextConfig(...arguments_))
 }
