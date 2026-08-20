@@ -1,5 +1,6 @@
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import { initialize } from "react-devtools-inline/backend"
 import { makeBrowserInspectorRuntime } from "./BrowserRuntime.js"
 
 declare global {
@@ -7,6 +8,11 @@ declare global {
     __RSC_INSPECTOR_RUNTIME__?: ReturnType<typeof makeBrowserInspectorRuntime>
   }
 }
+
+// Next evaluates injected instrumentation modules before hydration. Install the
+// hook synchronously here so React cannot register its renderer during the
+// asynchronous runtime assembly below.
+initialize(window)
 
 const install = async (): Promise<void> => {
   await window.__RSC_INSPECTOR_RUNTIME__?.dispose()

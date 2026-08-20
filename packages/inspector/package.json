@@ -1,6 +1,6 @@
 {
   "name": "next-rsc-inspector",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Development overlay for visualizing React Server and Client Component boundaries in Next.js App Router applications.",
   "license": "MIT",
   "repository": {
