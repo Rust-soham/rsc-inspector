@@ -7,3 +7,5 @@ coverage
 playwright-report
 test-results
 *.tsbuildinfo
+V0_PRD.md
+so latest nextjs during build time, splits the com.md
